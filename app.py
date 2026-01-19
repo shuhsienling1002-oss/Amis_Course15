@@ -29,7 +29,7 @@ def safe_play_audio(text):
 # --- 0. 系統配置 ---
 st.set_page_config(page_title="Unit 15: O Pitilidan", page_icon="🏫", layout="centered")
 
-# --- CSS 美化 (學術藍) ---
+# --- CSS 美化 ---
 st.markdown("""
     <style>
     body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
@@ -90,8 +90,9 @@ sentences = [
     {"amis": "Nani pitilidan a minokay.", "chi": "從學校回家。", "icon": "🚶", "source": "Row 497"},
 ]
 
-# --- 3. 隨機題庫 ---
-quiz_pool = [
+# --- 3. 隨機題庫 (定義題目) ---
+# 注意：options 在這裡只定義內容，不用管順序，我們會動態洗牌
+raw_quiz_pool = [
     {
         "q": "O singsi kora a kaying.",
         "audio": "O singsi kora a kaying",
@@ -143,17 +144,31 @@ quiz_pool = [
     }
 ]
 
-# --- 4. 狀態初始化 ---
+# --- 4. 狀態初始化 (洗牌邏輯) ---
 if 'init' not in st.session_state:
     st.session_state.score = 0
-    st.session_state.quiz_questions = random.sample(quiz_pool, 3)
     st.session_state.current_q_idx = 0
     st.session_state.quiz_id = str(random.randint(1000, 9999))
+    
+    # [關鍵] 1. 先抽 3 題
+    selected_questions = random.sample(raw_quiz_pool, 3)
+    
+    # [關鍵] 2. 對每一題的選項進行洗牌 (Shuffle)
+    # 我們必須複製一份，不然會改到原始資料
+    final_questions = []
+    for q in selected_questions:
+        q_copy = q.copy()
+        # 打亂選項順序
+        shuffled_opts = random.sample(q['options'], len(q['options']))
+        q_copy['shuffled_options'] = shuffled_opts
+        final_questions.append(q_copy)
+        
+    st.session_state.quiz_questions = final_questions
     st.session_state.init = True
 
 # --- 5. 主介面 ---
 st.markdown("<h1 style='text-align: center; color: #303F9F;'>Unit 15: O Pitilidan</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #666;'>學校生活 (School Life)</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #666;'>學校生活 (選項隨機版)</p>", unsafe_allow_html=True)
 
 tab1, tab2 = st.tabs(["📚 詞彙與句型", "🎲 隨機挑戰"])
 
@@ -202,8 +217,9 @@ with tab2:
             if st.button("🎧 播放題目音檔", key=f"btn_audio_{st.session_state.current_q_idx}"):
                 safe_play_audio(q_data['audio'])
         
+        # [關鍵] 使用已經洗牌過的 'shuffled_options'
         unique_key = f"q_{st.session_state.quiz_id}_{st.session_state.current_q_idx}"
-        user_choice = st.radio("請選擇正確答案：", q_data['options'], key=unique_key)
+        user_choice = st.radio("請選擇正確答案：", q_data['shuffled_options'], key=unique_key)
         
         if st.button("送出答案", key=f"btn_submit_{st.session_state.current_q_idx}"):
             if user_choice == q_data['ans']:
@@ -227,8 +243,19 @@ with tab2:
         """, unsafe_allow_html=True)
         
         if st.button("🔄 再來一局 (重新抽題)", key="btn_restart"):
+            # 重置時，需要重新執行洗牌邏輯
             st.session_state.score = 0
             st.session_state.current_q_idx = 0
-            st.session_state.quiz_questions = random.sample(quiz_pool, 3)
             st.session_state.quiz_id = str(random.randint(1000, 9999))
+            
+            # 重新抽題並洗牌
+            new_questions = random.sample(raw_quiz_pool, 3)
+            final_qs = []
+            for q in new_questions:
+                q_copy = q.copy()
+                shuffled_opts = random.sample(q['options'], len(q['options']))
+                q_copy['shuffled_options'] = shuffled_opts
+                final_qs.append(q_copy)
+            
+            st.session_state.quiz_questions = final_qs
             safe_rerun()
